@@ -3,43 +3,47 @@ import pandas as pd
 import networkx as nx
 import plotly.graph_objects as go
 import numpy as np
-import json
-import random
 import os
+import random
 
-# ============================
-# Streamlit Config
-# ============================
+# ==================================================
+# Streamlit Page Configuration
+# ==================================================
 st.set_page_config(
-    page_title="3D Citation Network Visualization",
+    page_title="Graph Analytics on Citation Networks",
     layout="wide"
 )
 
 st.title("3D Interactive Citation Network")
-st.caption("Node2Vec embeddings + Unsupervised Clustering")
+st.caption("Node2Vec Embeddings + Unsupervised Learning")
 
-# ============================
-# Paths (from your project)
-# ============================
+# ==================================================
+# File Paths (NO outputs/ used anywhere)
+# ==================================================
 NODES_CSV = "data/nodes.csv"
 EDGES_CSV = "data/edges.csv"
-CLUSTER_CSV = "outputs/node_cluster_assignments.csv"
+CLUSTER_CSV = "node_cluster_assignments.csv"  # optional
 
-# ============================
-# Load Data (cached)
-# ============================
+# ==================================================
+# Load Data
+# ==================================================
 @st.cache_data
 def load_data():
     nodes_df = pd.read_csv(NODES_CSV, dtype=str)
     edges_df = pd.read_csv(EDGES_CSV, dtype=str)
-    cluster_df = pd.read_csv(CLUSTER_CSV, dtype=str)
+
+    if os.path.exists(CLUSTER_CSV):
+        cluster_df = pd.read_csv(CLUSTER_CSV, dtype=str)
+    else:
+        cluster_df = None
+
     return nodes_df, edges_df, cluster_df
 
 nodes_df, edges_df, cluster_df = load_data()
 
-# ============================
-# Build Graph
-# ============================
+# ==================================================
+# Build Citation Graph
+# ==================================================
 @st.cache_data
 def build_graph(nodes_df, edges_df):
     G = nx.DiGraph()
@@ -52,35 +56,46 @@ def build_graph(nodes_df, edges_df):
         )
 
     for _, row in edges_df.iterrows():
-        G.add_edge(row["sourceNodeId"], row["targetNodeId"])
+        G.add_edge(
+            row["sourceNodeId"],
+            row["targetNodeId"]
+        )
 
     return G
 
 G = build_graph(nodes_df, edges_df)
 node_list = list(G.nodes())
 
+# ==================================================
+# Graph Summary
+# ==================================================
 st.markdown(
     f"""
 **Graph Summary**
 - Nodes: `{G.number_of_nodes()}`
 - Edges: `{G.number_of_edges()}`
-- Directed citation network
+- Type: Directed citation network
 """
 )
 
-# ============================
-# Node → Cluster mapping
-# ============================
-cluster_map = {
-    str(row["nodeId"]): int(row["kmeans_cluster"])
-    for _, row in cluster_df.iterrows()
-}
+# ==================================================
+# Cluster Handling (Optional)
+# ==================================================
+if cluster_df is not None:
+    cluster_map = {
+        str(row["nodeId"]): int(row["kmeans_cluster"])
+        for _, row in cluster_df.iterrows()
+    }
+    labels = np.array([cluster_map.get(n, -1) for n in node_list])
+    show_clusters = True
+else:
+    labels = np.zeros(len(node_list), dtype=int)
+    show_clusters = False
+    st.warning("Cluster file not found. Showing graph without clustering.")
 
-labels = np.array([cluster_map.get(n, -1) for n in node_list])
-
-# ============================
-# 3D Layout (cached)
-# ============================
+# ==================================================
+# 3D Graph Layout
+# ==================================================
 @st.cache_data
 def compute_3d_layout(G):
     return nx.spring_layout(
@@ -93,9 +108,9 @@ def compute_3d_layout(G):
 
 pos = compute_3d_layout(G)
 
-# ============================
-# Build Edges (sampled)
-# ============================
+# ==================================================
+# Build Edge Traces (Sampled)
+# ==================================================
 edge_x, edge_y, edge_z = [], [], []
 
 MAX_EDGES = 3000
@@ -119,16 +134,16 @@ edge_trace = go.Scatter3d(
     hoverinfo="none"
 )
 
-# ============================
-# Build Nodes
-# ============================
+# ==================================================
+# Build Node Traces
+# ==================================================
 node_x, node_y, node_z, hover_texts, sizes = [], [], [], [], []
-
 degrees = dict(G.degree())
 
 for n in node_list:
     if n not in pos:
         continue
+
     x, y, z = pos[n]
     node_x.append(x)
     node_y.append(y)
@@ -138,8 +153,8 @@ for n in node_list:
     hover_texts.append(
         f"Node ID: {n}"
         f"<br>Subject: {nd.get('subject', 'NA')}"
-        f"<br>Degree: {degrees.get(n,0)}"
-        f"<br>Cluster: {cluster_map.get(n, -1)}"
+        f"<br>Degree: {degrees.get(n, 0)}"
+        f"<br>Cluster: {cluster_map.get(n, 'NA') if show_clusters else 'NA'}"
     )
 
     sizes.append(6 + min(degrees.get(n, 0), 20))
@@ -155,15 +170,15 @@ node_trace = go.Scatter3d(
         size=sizes,
         color=labels,
         colorscale="Viridis",
-        showscale=True,
-        colorbar=dict(title="Cluster ID"),
+        showscale=show_clusters,
+        colorbar=dict(title="Cluster ID") if show_clusters else None,
         line=dict(width=0.3, color="black")
     )
 )
 
-# ============================
+# ==================================================
 # Plotly Figure
-# ============================
+# ==================================================
 fig = go.Figure(
     data=[edge_trace, node_trace],
     layout=go.Layout(
@@ -172,21 +187,21 @@ fig = go.Figure(
         scene=dict(
             xaxis=dict(visible=False),
             yaxis=dict(visible=False),
-            zaxis=dict(visible=False),
+            zaxis=dict(visible=False)
         ),
-        title="3D Citation Network (Node2Vec + KMeans)"
+        title="3D Citation Network (Node2Vec + Unsupervised Learning)"
     )
 )
 
-# ============================
-# Render
-# ============================
+# ==================================================
+# Render in Streamlit
+# ==================================================
 st.plotly_chart(fig, use_container_width=True)
 
 st.markdown("""
 ### 🧭 Interaction Guide
-- **Rotate:** Left click  
+- **Rotate:** Left-click  
 - **Zoom:** Scroll  
-- **Pan:** Right click  
-- **Hover:** Node metadata  
+- **Pan:** Right-click  
+- **Hover:** View node metadata  
 """)
