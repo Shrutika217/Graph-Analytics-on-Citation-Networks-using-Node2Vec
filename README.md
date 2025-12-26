@@ -59,7 +59,7 @@ The Streamlit app allows users to:
 ├── data/
 │   ├── nodes.csv
 │   └── edges.csv
-```text
+```
 
 ---
 
