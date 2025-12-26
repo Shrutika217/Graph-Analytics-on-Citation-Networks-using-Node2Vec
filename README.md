@@ -9,7 +9,7 @@ The project explores latent structural and semantic relationships between scient
 ## 🔗 Live Demo & Report
 
 - 🌐 **Interactive 3D Graph (Streamlit App):**  
-  👉 https://graph-analytics-on-citation-networks-using-node2vec.streamlit.app/
+  👉 https://graph-analytics-on-citation-networks-using-node2vec-gnatumaywu.streamlit.app/
 
 - 📄 **Project Report (PDF):**  
   👉 https://github.com/Shrutika217/Graph-Analytics-on-Citation-Networks-using-Node2Vec/blob/main/Project_Report.pdf  
