@@ -97,16 +97,20 @@ else:
 # 3D Graph Layout
 # ==================================================
 @st.cache_data
-def compute_3d_layout(G):
+def compute_3d_layout(node_list, edge_list):
+    G_tmp = nx.Graph()
+    G_tmp.add_nodes_from(node_list)
+    G_tmp.add_edges_from(edge_list)
+
     return nx.spring_layout(
-        G.to_undirected(),
+        G_tmp,
         dim=3,
         seed=42,
         k=0.15,
         iterations=80
     )
-
-pos = compute_3d_layout(G)
+    
+pos = compute_3d_layout(node_list, edges)
 
 # ==================================================
 # Build Edge Traces (Sampled)
