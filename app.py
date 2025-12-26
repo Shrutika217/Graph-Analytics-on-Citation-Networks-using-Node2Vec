@@ -25,7 +25,7 @@ EDGES_CSV = "data/edges.csv"
 CLUSTER_CSV = "node_cluster_assignments.csv"  # optional
 
 # ==================================================
-# Load Data
+# Load Data (SAFE to cache: CSV → DataFrame)
 # ==================================================
 @st.cache_data
 def load_data():
@@ -42,28 +42,23 @@ def load_data():
 nodes_df, edges_df, cluster_df = load_data()
 
 # ==================================================
-# Build Citation Graph
+# Build Citation Graph (❌ NOT cached)
 # ==================================================
-@st.cache_data
-def build_graph(nodes_df, edges_df):
-    G = nx.DiGraph()
+G = nx.DiGraph()
 
-    for _, row in nodes_df.iterrows():
-        G.add_node(
-            row["nodeId"],
-            subject=row.get("subject", "Unknown"),
-            label=row.get("labels", "Unknown")
-        )
+for _, row in nodes_df.iterrows():
+    G.add_node(
+        row["nodeId"],
+        subject=row.get("subject", "Unknown"),
+        label=row.get("labels", "Unknown")
+    )
 
-    for _, row in edges_df.iterrows():
-        G.add_edge(
-            row["sourceNodeId"],
-            row["targetNodeId"]
-        )
+for _, row in edges_df.iterrows():
+    G.add_edge(
+        row["sourceNodeId"],
+        row["targetNodeId"]
+    )
 
-    return G
-
-G = build_graph(nodes_df, edges_df)
 node_list = list(G.nodes())
 
 # ==================================================
@@ -94,32 +89,27 @@ else:
     st.warning("Cluster file not found. Showing graph without clustering.")
 
 # ==================================================
-# 3D Graph Layout
+# Build Edge List (BEFORE layout)
 # ==================================================
-@st.cache_data
-def compute_3d_layout(node_list, edge_list):
-    G_tmp = nx.Graph()
-    G_tmp.add_nodes_from(node_list)
-    G_tmp.add_edges_from(edge_list)
-
-    return nx.spring_layout(
-        G_tmp,
-        dim=3,
-        seed=42,
-        k=0.15,
-        iterations=80
-    )
-    
-pos = compute_3d_layout(node_list, edges)
+edges = list(G.edges())
+MAX_EDGES = 3000
+edges = edges if len(edges) <= MAX_EDGES else random.sample(edges, MAX_EDGES)
 
 # ==================================================
-# Build Edge Traces (Sampled)
+# 3D Graph Layout 
+# ==================================================
+pos = nx.spring_layout(
+    G.to_undirected(),
+    dim=3,
+    seed=42,
+    k=0.15,
+    iterations=80
+)
+
+# ==================================================
+# Build Edge Traces
 # ==================================================
 edge_x, edge_y, edge_z = [], [], []
-
-MAX_EDGES = 3000
-edges = list(G.edges())
-edges = edges if len(edges) <= MAX_EDGES else random.sample(edges, MAX_EDGES)
 
 for u, v in edges:
     if u in pos and v in pos:
